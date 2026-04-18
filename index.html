@@ -142,8 +142,6 @@ td.comment-cell { color: var(--text3); max-width: 180px; overflow: hidden; text-
         <div class="field"><label>Ammonium NH₄⁺ <span>mg/l</span></label><input type="number" id="f_nh4" step="0.01" placeholder="–"></div>
         <div class="field"><label>Calcium Ca <span>ppm</span></label><input type="number" id="f_ca" step="1" placeholder="–"></div>
         <div class="field"><label>Magnesium Mg <span>ppm</span></label><input type="number" id="f_mg" step="1" placeholder="–"></div>
-        <div class="field"><label>Alkalinität <span>meq/l</span></label><input type="number" id="f_alk" step="0.1" placeholder="–"></div>
-        <div class="field"><label>Temperatur <span>°C</span></label><input type="number" id="f_temp" step="0.1" placeholder="–"></div>
         <div class="field full"><label>Kommentar</label><input type="text" id="f_comment" placeholder="z.B. Wasserwechsel, Dosierung ..."></div>
       </div>
       <div class="form-actions">
@@ -171,7 +169,7 @@ td.comment-cell { color: var(--text3); max-width: 180px; overflow: hidden; text-
               <th>Datum</th>
               <th>Sal.</th><th>KH</th><th>pH</th>
               <th>NO₂</th><th>NO₃</th><th>PO₄</th><th>NH₄⁺</th>
-              <th>Ca</th><th>Mg</th><th>Alk</th><th>Temp</th>
+              <th>Ca</th><th>Mg</th>
               <th>Kommentar</th><th></th>
             </tr>
           </thead>
@@ -200,8 +198,7 @@ const PARAMS = [
   { key:'nh4',      label:'NH₄⁺',      unit:'mg/l', color:'#f472b6' },
   { key:'ca',       label:'Calcium',   unit:'ppm',  color:'#60a5fa' },
   { key:'mg',       label:'Magnesium', unit:'ppm',  color:'#34d399' },
-  { key:'alk',      label:'Alk.',      unit:'meq/l',color:'#a78bfa' },
-  { key:'temp',     label:'Temp',      unit:'°C',   color:'#fb923c' },
+
 ];
 const NUM_KEYS = PARAMS.map(p => p.key);
 
@@ -347,7 +344,7 @@ function renderDashboard() {
 
 function renderTable() {
   const tbody = document.getElementById('tableBody');
-  if (!data.length) { tbody.innerHTML = '<tr><td colspan="14" class="empty">Noch keine Daten</td></tr>'; return; }
+  if (!data.length) { tbody.innerHTML = '<tr><td colspan="12" class="empty">Noch keine Daten</td></tr>'; return; }
   tbody.innerHTML = [...data].reverse().map(e => `
     <tr>
       <td class="date-cell">${e.date}</td>

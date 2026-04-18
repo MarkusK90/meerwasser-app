@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Aquarium">
+<meta name="theme-color" content="#060d1a">
+<title>Aquarium – Wasseranalyse</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:wght@300;400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #060d1a; --bg2: #0d1c30; --bg3: #112038;
+  --surface: #0f1f35; --surface2: #162844;
+  --border: rgba(100,180,255,0.10); --border2: rgba(100,180,255,0.18);
+  --text: #ddeeff; --text2: #7fa8cc; --text3: #4a7090;
+  --accent: #00c8ff; --accent-dim: rgba(0,200,255,0.12);
+  --green: #00e5a0; --green-dim: rgba(0,229,160,0.12);
+  --amber: #ffb830; --amber-dim: rgba(255,184,48,0.12);
+  --red: #ff4f6a; --red-dim: rgba(255,79,106,0.12);
+  --radius: 12px; --radius-sm: 7px;
+  --mono: 'DM Mono', monospace; --sans: 'DM Sans', sans-serif;
+}
+html { scroll-behavior: smooth; }
+body { font-family: var(--sans); background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.55; min-height: 100dvh; padding-bottom: 5rem; }
+header { position: sticky; top: 0; z-index: 50; background: rgba(6,13,26,0.90); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 0.5px solid var(--border); padding: 0.9rem 1.25rem; display: flex; align-items: center; justify-content: space-between; }
+.logo { display: flex; align-items: center; gap: 0.6rem; }
+.logo-icon { width: 28px; height: 28px; background: var(--accent-dim); border: 0.5px solid var(--accent); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+.logo-text { font-family: var(--mono); font-size: 13px; font-weight: 500; letter-spacing: 0.08em; color: var(--text2); }
+.sync-status { font-family: var(--mono); font-size: 11px; padding: 4px 10px; border-radius: 20px; border: 0.5px solid; display: flex; align-items: center; gap: 5px; }
+.sync-status.ok { color: var(--green); border-color: rgba(0,229,160,0.3); background: var(--green-dim); }
+.sync-status.err { color: var(--red); border-color: rgba(255,79,106,0.3); background: var(--red-dim); }
+.sync-status.syncing { color: var(--amber); border-color: rgba(255,184,48,0.3); background: var(--amber-dim); }
+.sync-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.sync-dot.pulse { animation: pulse 1.5s infinite; }
+nav { display: flex; padding: 0 1.25rem; border-bottom: 0.5px solid var(--border); background: var(--bg); overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+nav::-webkit-scrollbar { display: none; }
+.tab { font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; color: var(--text3); padding: 0.75rem 1rem; border: none; background: none; cursor: pointer; white-space: nowrap; border-bottom: 2px solid transparent; margin-bottom: -0.5px; transition: color 0.15s, border-color 0.15s; }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab:hover:not(.active) { color: var(--text2); }
+main { max-width: 900px; margin: 0 auto; padding: 1.5rem 1rem; }
+.section { display: none; flex-direction: column; gap: 1.25rem; }
+.section.active { display: flex; }
+.card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1.25rem; }
+.card-title { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; color: var(--text3); text-transform: uppercase; margin-bottom: 1.1rem; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 0.75rem; }
+.stat { background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 0.85rem 1rem; }
+.stat-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; color: var(--text3); text-transform: uppercase; margin-bottom: 5px; }
+.stat-value { font-family: var(--mono); font-size: 18px; font-weight: 400; color: var(--text); line-height: 1.2; }
+.stat-unit { font-size: 11px; color: var(--text3); margin-left: 2px; }
+.stat-avg { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-top: 3px; }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)); gap: 0.75rem; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field.full { grid-column: 1 / -1; }
+.field label { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; color: var(--text3); display: flex; justify-content: space-between; align-items: baseline; }
+.field label span { font-size: 10px; opacity: 0.7; }
+.field input { background: var(--bg2); border: 0.5px solid var(--border2); border-radius: var(--radius-sm); color: var(--text); font-family: var(--mono); font-size: 14px; padding: 9px 11px; width: 100%; outline: none; transition: border-color 0.15s, background 0.15s; -webkit-appearance: none; }
+.field input:focus { border-color: var(--accent); background: var(--bg3); }
+.field input::placeholder { color: var(--text3); opacity: 0.5; }
+.btn { font-family: var(--mono); font-size: 12px; letter-spacing: 0.05em; padding: 9px 18px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: transparent; color: var(--text2); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.btn:hover { background: var(--surface2); color: var(--text); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 500; }
+.btn.primary:hover { opacity: 0.88; }
+.btn.ghost { border-color: transparent; color: var(--text3); }
+.btn.ghost:hover { color: var(--red); background: var(--red-dim); }
+.form-actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; }
+.param-pills { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem; }
+.pill { font-family: var(--mono); font-size: 11px; padding: 4px 11px; border-radius: 20px; border: 0.5px solid var(--border2); background: transparent; color: var(--text3); cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 5px; }
+.pill-dot { width: 6px; height: 6px; border-radius: 50%; }
+.chart-wrap { position: relative; height: 280px; }
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+thead th { text-align: left; padding: 8px 10px; color: var(--text3); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; border-bottom: 0.5px solid var(--border); white-space: nowrap; font-weight: 400; }
+tbody tr { border-bottom: 0.5px solid var(--border); transition: background 0.1s; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--bg2); }
+tbody td { padding: 9px 10px; white-space: nowrap; color: var(--text2); }
+td.date-cell { color: var(--text); font-weight: 500; }
+td.null-cell { color: var(--text3); opacity: 0.45; }
+td.comment-cell { color: var(--text3); max-width: 180px; overflow: hidden; text-overflow: ellipsis; font-style: italic; }
+.action-btn { background: none; border: none; cursor: pointer; color: var(--text3); padding: 3px 6px; border-radius: 4px; font-size: 13px; transition: all 0.15s; }
+.action-btn:hover { color: var(--accent); background: var(--accent-dim); }
+.action-btn.del:hover { color: var(--red); background: var(--red-dim); }
+.empty { text-align: center; padding: 3rem; color: var(--text3); font-family: var(--mono); font-size: 13px; }
+.toast { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%) translateY(8px); padding: 10px 20px; border-radius: 20px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.05em; opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s; z-index: 999; white-space: nowrap; }
+.toast.ok { background: var(--green-dim); color: var(--green); border: 0.5px solid rgba(0,229,160,0.3); }
+.toast.err { background: var(--red-dim); color: var(--red); border: 0.5px solid rgba(255,79,106,0.3); }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.install-hint { background: var(--accent-dim); border: 0.5px solid rgba(0,200,255,0.2); border-radius: var(--radius-sm); padding: 0.75rem 1rem; font-size: 13px; color: var(--text2); display: flex; align-items: center; gap: 0.75rem; }
+.install-hint button { margin-left: auto; background: none; border: none; color: var(--text3); cursor: pointer; font-size: 16px; line-height: 1; }
+@media (max-width: 600px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } .form-grid { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🪸</div>
+    <span class="logo-text">REEF.LOG</span>
+  </div>
+  <div class="sync-status syncing" id="syncStatus">
+    <div class="sync-dot pulse" id="syncDot"></div>
+    <span id="syncText">verbinde...</span>
+  </div>
+</header>
+
+<nav>
+  <button class="tab active" onclick="showTab('dashboard')">Dashboard</button>
+  <button class="tab" onclick="showTab('entry')">Messung</button>
+  <button class="tab" onclick="showTab('chart')">Verlauf</button>
+  <button class="tab" onclick="showTab('data')">Daten</button>
+</nav>
+
+<main>
+  <div class="section active" id="tab-dashboard">
+    <div id="installHint" class="install-hint" style="display:none">
+      <span>📱 Zum Homescreen hinzufügen: Teilen-Button → „Zum Home-Bildschirm"</span>
+      <button onclick="document.getElementById('installHint').style.display='none'">✕</button>
+    </div>
+    <div class="card">
+      <div class="card-title">Letzte Messung</div>
+      <div class="stats-grid" id="statsGrid"><div class="empty">Lade Daten...</div></div>
+    </div>
+  </div>
+
+  <div class="section" id="tab-entry">
+    <div class="card">
+      <div class="card-title" id="formTitle">Neue Messung</div>
+      <div class="form-grid">
+        <div class="field"><label>Datum</label><input type="date" id="f_date"></div>
+        <div class="field"><label>Salinität <span>psu</span></label><input type="number" id="f_salinity" step="0.1" placeholder="–"></div>
+        <div class="field"><label>Karbonathärte <span>°dH</span></label><input type="number" id="f_kh" step="0.1" placeholder="–"></div>
+        <div class="field"><label>pH <span>–</span></label><input type="number" id="f_ph" step="0.01" placeholder="–"></div>
+        <div class="field"><label>Nitrit NO₂ <span>mg/l</span></label><input type="number" id="f_no2" step="0.01" placeholder="–"></div>
+        <div class="field"><label>Nitrat NO₃ <span>mg/l</span></label><input type="number" id="f_no3" step="0.1" placeholder="–"></div>
+        <div class="field"><label>Phosphat PO₄ <span>mg/l</span></label><input type="number" id="f_po4" step="0.001" placeholder="–"></div>
+        <div class="field"><label>Ammonium NH₄⁺ <span>mg/l</span></label><input type="number" id="f_nh4" step="0.01" placeholder="–"></div>
+        <div class="field"><label>Calcium Ca <span>ppm</span></label><input type="number" id="f_ca" step="1" placeholder="–"></div>
+        <div class="field"><label>Magnesium Mg <span>ppm</span></label><input type="number" id="f_mg" step="1" placeholder="–"></div>
+        <div class="field"><label>Alkalinität <span>meq/l</span></label><input type="number" id="f_alk" step="0.1" placeholder="–"></div>
+        <div class="field"><label>Temperatur <span>°C</span></label><input type="number" id="f_temp" step="0.1" placeholder="–"></div>
+        <div class="field full"><label>Kommentar</label><input type="text" id="f_comment" placeholder="z.B. Wasserwechsel, Dosierung ..."></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn ghost" onclick="resetForm()" id="cancelBtn" style="display:none">Abbrechen</button>
+        <button class="btn primary" onclick="saveEntry()" id="saveBtn">Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section" id="tab-chart">
+    <div class="card">
+      <div class="card-title">Parameter auswählen</div>
+      <div class="param-pills" id="paramPills"></div>
+      <div class="chart-wrap"><canvas id="mainChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="section" id="tab-data">
+    <div class="card">
+      <div class="card-title">Alle Messungen</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Datum</th>
+              <th>Sal.</th><th>KH</th><th>pH</th>
+              <th>NO₂</th><th>NO₃</th><th>PO₄</th><th>NH₄⁺</th>
+              <th>Ca</th><th>Mg</th><th>Alk</th><th>Temp</th>
+              <th>Kommentar</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://mtslhodidjldtswqzdup.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im10c2xob2RpZGpsZHRzd3F6ZHVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzODM2OTksImV4cCI6MjA5MTk1OTY5OX0.cEm4H5snmD0ubE51_LQRVWvqsQt-2WkrsZscU8hI6Hk';
+const API = `${SUPABASE_URL}/rest/v1/measurements`;
+const HDR = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
+
+const PARAMS = [
+  { key:'salinity', label:'Salinität', unit:'psu',   color:'#00c8ff' },
+  { key:'kh',       label:'KH',        unit:'°dH',  color:'#00e5a0' },
+  { key:'ph',       label:'pH',        unit:'',      color:'#ffb830' },
+  { key:'no2',      label:'NO₂',       unit:'mg/l', color:'#ff4f6a' },
+  { key:'no3',      label:'NO₃',       unit:'mg/l', color:'#ff8c42' },
+  { key:'po4',      label:'PO₄',       unit:'mg/l', color:'#c084fc' },
+  { key:'nh4',      label:'NH₄⁺',      unit:'mg/l', color:'#f472b6' },
+  { key:'ca',       label:'Calcium',   unit:'ppm',  color:'#60a5fa' },
+  { key:'mg',       label:'Magnesium', unit:'ppm',  color:'#34d399' },
+  { key:'alk',      label:'Alk.',      unit:'meq/l',color:'#a78bfa' },
+  { key:'temp',     label:'Temp',      unit:'°C',   color:'#fb923c' },
+];
+const NUM_KEYS = PARAMS.map(p => p.key);
+
+let data = [], editId = null, chart = null;
+let activeParams = new Set(['salinity','kh','ph']);
+
+function setSyncState(state, text) {
+  const el = document.getElementById('syncStatus');
+  const dot = document.getElementById('syncDot');
+  el.className = `sync-status ${state}`;
+  dot.className = `sync-dot${state==='syncing' ? ' pulse' : ''}`;
+  document.getElementById('syncText').textContent = text;
+}
+
+async function dbFetch() {
+  setSyncState('syncing','sync...');
+  try {
+    const r = await fetch(`${API}?order=date.asc`, { headers: HDR });
+    if (!r.ok) throw new Error(r.status);
+    data = await r.json();
+    setSyncState('ok','verbunden');
+    render();
+  } catch {
+    setSyncState('err','offline');
+    toast('Verbindung fehlgeschlagen', 'err');
+  }
+}
+
+async function dbInsert(entry) {
+  setSyncState('syncing','sync...');
+  try {
+    const r = await fetch(API, { method:'POST', headers: HDR, body: JSON.stringify(entry) });
+    if (!r.ok) throw new Error(await r.text());
+    setSyncState('ok','verbunden');
+    await dbFetch();
+    return true;
+  } catch { setSyncState('err','offline'); toast('Fehler beim Speichern','err'); return false; }
+}
+
+async function dbUpdate(id, entry) {
+  setSyncState('syncing','sync...');
+  try {
+    const r = await fetch(`${API}?id=eq.${id}`, { method:'PATCH', headers: HDR, body: JSON.stringify(entry) });
+    if (!r.ok) throw new Error(await r.text());
+    setSyncState('ok','verbunden');
+    await dbFetch();
+    return true;
+  } catch { setSyncState('err','offline'); toast('Fehler beim Aktualisieren','err'); return false; }
+}
+
+async function dbDelete(id) {
+  setSyncState('syncing','sync...');
+  try {
+    const r = await fetch(`${API}?id=eq.${id}`, { method:'DELETE', headers: HDR });
+    if (!r.ok) throw new Error(r.status);
+    setSyncState('ok','verbunden');
+    await dbFetch();
+    toast('Gelöscht');
+  } catch { setSyncState('err','offline'); toast('Fehler beim Löschen','err'); }
+}
+
+function showTab(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  document.querySelector(`.tab[onclick="showTab('${name}')"]`).classList.add('active');
+  if (name==='chart') renderChart();
+}
+
+function toast(msg, type='ok') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function getToday() { return new Date().toISOString().slice(0,10); }
+function fmt(v) { return v !== null && v !== undefined ? v : '–'; }
+
+function resetForm() {
+  editId = null;
+  document.getElementById('formTitle').textContent = 'Neue Messung';
+  document.getElementById('saveBtn').textContent = 'Speichern';
+  document.getElementById('cancelBtn').style.display = 'none';
+  document.getElementById('f_date').value = getToday();
+  NUM_KEYS.forEach(k => document.getElementById('f_'+k).value = '');
+  document.getElementById('f_comment').value = '';
+}
+
+function fillForm(e) {
+  document.getElementById('f_date').value = e.date || '';
+  NUM_KEYS.forEach(k => { document.getElementById('f_'+k).value = e[k] !== null && e[k] !== undefined ? e[k] : ''; });
+  document.getElementById('f_comment').value = e.comment || '';
+}
+
+async function saveEntry() {
+  const date = document.getElementById('f_date').value;
+  if (!date) { toast('Datum erforderlich','err'); return; }
+  const entry = { date };
+  NUM_KEYS.forEach(k => { const v = document.getElementById('f_'+k).value; entry[k] = v !== '' ? parseFloat(v) : null; });
+  entry.comment = document.getElementById('f_comment').value || null;
+  const hasVal = NUM_KEYS.some(k => entry[k] !== null);
+  if (!hasVal && !entry.comment) { toast('Mindestens einen Wert eintragen','err'); return; }
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  let ok;
+  if (editId) { ok = await dbUpdate(editId, entry); }
+  else { entry.id = Date.now(); ok = await dbInsert(entry); }
+  btn.disabled = false;
+  if (ok) { toast(editId ? 'Aktualisiert' : 'Gespeichert'); resetForm(); showTab('dashboard'); }
+}
+
+function editEntry(id) {
+  const e = data.find(x => x.id === id); if (!e) return;
+  editId = id; fillForm(e);
+  document.getElementById('formTitle').textContent = 'Messung bearbeiten';
+  document.getElementById('saveBtn').textContent = 'Aktualisieren';
+  document.getElementById('cancelBtn').style.display = '';
+  showTab('entry');
+}
+
+async function deleteEntry(id) {
+  if (!confirm('Eintrag löschen?')) return;
+  await dbDelete(id);
+}
+
+function renderDashboard() {
+  const grid = document.getElementById('statsGrid');
+  if (!data.length) { grid.innerHTML = '<div class="empty">Noch keine Messungen vorhanden</div>'; return; }
+  const last = data[data.length-1];
+  let html = `
+    <div class="stat"><div class="stat-label">Messungen</div><div class="stat-value">${data.length}</div><div class="stat-avg">seit ${data[0].date}</div></div>
+    <div class="stat"><div class="stat-label">Letzte</div><div class="stat-value" style="font-size:13px">${last.date}</div></div>
+  `;
+  PARAMS.forEach(p => {
+    const vals = data.map(e => e[p.key]).filter(v => v !== null && v !== undefined);
+    if (!vals.length) return;
+    const avg = vals.reduce((a,b) => a+b, 0) / vals.length;
+    const lv = last[p.key];
+    html += `<div class="stat"><div class="stat-label">${p.label}</div><div class="stat-value">${lv !== null && lv !== undefined ? lv : '–'}<span class="stat-unit">${p.unit}</span></div><div class="stat-avg">Ø ${avg.toFixed(2)}</div></div>`;
+  });
+  grid.innerHTML = html;
+}
+
+function renderTable() {
+  const tbody = document.getElementById('tableBody');
+  if (!data.length) { tbody.innerHTML = '<tr><td colspan="14" class="empty">Noch keine Daten</td></tr>'; return; }
+  tbody.innerHTML = [...data].reverse().map(e => `
+    <tr>
+      <td class="date-cell">${e.date}</td>
+      ${NUM_KEYS.map(k => `<td class="${e[k]===null||e[k]===undefined?'null-cell':''}">${fmt(e[k])}</td>`).join('')}
+      <td class="comment-cell">${e.comment || '–'}</td>
+      <td>
+        <button class="action-btn" onclick="editEntry(${e.id})">✎</button>
+        <button class="action-btn del" onclick="deleteEntry(${e.id})">✕</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function renderPills() {
+  document.getElementById('paramPills').innerHTML = PARAMS.map(p => {
+    const on = activeParams.has(p.key);
+    return `<button class="pill${on?' active':''}" onclick="toggleParam('${p.key}')" style="${on?`color:${p.color};border-color:${p.color}55;background:${p.color}18`:''}"><span class="pill-dot" style="background:${p.color}"></span>${p.label}${p.unit?` <span style="opacity:0.6">${p.unit}</span>`:''}</button>`;
+  }).join('');
+}
+
+function toggleParam(key) {
+  if (activeParams.has(key)) { if (activeParams.size===1) return; activeParams.delete(key); }
+  else { activeParams.add(key); }
+  renderPills(); renderChart();
+}
+
+function renderChart() {
+  const ctx = document.getElementById('mainChart').getContext('2d');
+  const dates = data.map(e => e.date);
+  const datasets = PARAMS.filter(p => activeParams.has(p.key)).map(p => ({
+    label: `${p.label}${p.unit?' ('+p.unit+')':''}`,
+    data: dates.map(d => { const e = data.find(x => x.date===d); return e && e[p.key]!==null && e[p.key]!==undefined ? e[p.key] : null; }),
+    borderColor: p.color, backgroundColor: p.color+'18',
+    tension: 0.35, spanGaps: true, pointRadius: 4, pointHoverRadius: 7, borderWidth: 2, fill: false,
+  }));
+  if (chart) chart.destroy();
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: { labels: dates, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode:'index', intersect:false },
+      plugins: {
+        legend: { position:'bottom', labels:{ color:'#7fa8cc', boxWidth:10, font:{ size:11, family:"'DM Mono', monospace" }, padding:14 } },
+        tooltip: { backgroundColor:'#0d1c30', borderColor:'rgba(100,180,255,0.2)', borderWidth:0.5, titleColor:'#ddeeff', bodyColor:'#7fa8cc', titleFont:{ family:"'DM Mono', monospace", size:11 }, bodyFont:{ family:"'DM Mono', monospace", size:11 } }
+      },
+      scales: {
+        x: { ticks:{ color:'#4a7090', font:{ size:10, family:"'DM Mono', monospace" }, maxRotation:45 }, grid:{ color:'rgba(100,180,255,0.06)' } },
+        y: { ticks:{ color:'#4a7090', font:{ size:10, family:"'DM Mono', monospace" } }, grid:{ color:'rgba(100,180,255,0.06)' } }
+      }
+    }
+  });
+}
+
+function render() { renderDashboard(); renderTable(); renderPills(); }
+
+if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream && !window.navigator.standalone) {
+  document.getElementById('installHint').style.display = 'flex';
+}
+
+document.getElementById('f_date').value = getToday();
+dbFetch();
+</script>
+</body>
+</html>

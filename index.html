@@ -155,6 +155,7 @@ td.comment-cell { color: var(--text3); max-width: 180px; overflow: hidden; text-
     <div class="card">
       <div class="card-title">Parameter auswählen</div>
       <div class="param-pills" id="paramPills"></div>
+      <div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:1rem" id="rangeButtons"></div>
       <div class="chart-wrap"><canvas id="mainChart"></canvas></div>
     </div>
   </div>
@@ -204,6 +205,7 @@ const NUM_KEYS = PARAMS.map(p => p.key);
 
 let data = [], editId = null, chart = null;
 let activeParams = new Set(['salinity','kh','ph']);
+let activeRange = "all";
 
 function setSyncState(state, text) {
   const el = document.getElementById('syncStatus');
@@ -265,7 +267,7 @@ function showTab(name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   document.querySelector(`.tab[onclick="showTab('${name}')"]`).classList.add('active');
-  if (name==='chart') renderChart();
+  if (name==='chart') { renderRangeButtons(); renderChart(); }
 }
 
 function toast(msg, type='ok') {
@@ -297,7 +299,7 @@ async function saveEntry() {
   const date = document.getElementById('f_date').value;
   if (!date) { toast('Datum erforderlich','err'); return; }
   const entry = { date };
-  NUM_KEYS.forEach(k => { const v = document.getElementById('f_'+k).value; entry[k] = v !== '' ? parseFloat(v) : null; });
+  NUM_KEYS.forEach(k => { const v = document.getElementById('f_'+k).value; if (v === '') { entry[k] = null; return; } const raw = parseFloat(v); entry[k] = k === 'po4' ? parseFloat((raw * 3.066 / 1000).toFixed(6)) : raw; });
   entry.comment = document.getElementById('f_comment').value || null;
   const hasVal = NUM_KEYS.some(k => entry[k] !== null);
   if (!hasVal && !entry.comment) { toast('Mindestens einen Wert eintragen','err'); return; }
@@ -371,12 +373,44 @@ function toggleParam(key) {
   renderPills(); renderChart();
 }
 
+const RANGES = [
+  { key:'1m',  label:'1 Mon.' },
+  { key:'3m',  label:'3 Mon.' },
+  { key:'6m',  label:'6 Mon.' },
+  { key:'1y',  label:'1 Jahr' },
+  { key:'all', label:'Gesamt' },
+];
+
+function getFilteredData() {
+  if (activeRange === 'all') return data;
+  const now = new Date();
+  const months = { '1m':1, '3m':3, '6m':6, '1y':12 };
+  const cutoff = new Date(now);
+  cutoff.setMonth(cutoff.getMonth() - months[activeRange]);
+  const cutStr = cutoff.toISOString().slice(0,10);
+  return data.filter(e => e.date >= cutStr);
+}
+
+function renderRangeButtons() {
+  document.getElementById('rangeButtons').innerHTML = RANGES.map(r =>
+    `<button class="pill${r.key===activeRange?' active':''}" onclick="setRange('${r.key}')"
+      style="${r.key===activeRange?'color:#00c8ff;border-color:#00c8ff55;background:#00c8ff18':''}">${r.label}</button>`
+  ).join('');
+}
+
+function setRange(key) {
+  activeRange = key;
+  renderRangeButtons();
+  renderChart();
+}
+
 function renderChart() {
+  const filtered = getFilteredData();
   const ctx = document.getElementById('mainChart').getContext('2d');
-  const dates = data.map(e => e.date);
+  const dates = filtered.map(e => e.date);
   const datasets = PARAMS.filter(p => activeParams.has(p.key)).map(p => ({
     label: `${p.label}${p.unit?' ('+p.unit+')':''}`,
-    data: dates.map(d => { const e = data.find(x => x.date===d); return e && e[p.key]!==null && e[p.key]!==undefined ? e[p.key] : null; }),
+    data: dates.map(d => { const e = filtered.find(x => x.date===d); return e && e[p.key]!==null && e[p.key]!==undefined ? e[p.key] : null; }),
     borderColor: p.color, backgroundColor: p.color+'18',
     tension: 0.35, spanGaps: true, pointRadius: 4, pointHoverRadius: 7, borderWidth: 2, fill: false,
   }));
@@ -399,7 +433,7 @@ function renderChart() {
   });
 }
 
-function render() { renderDashboard(); renderTable(); renderPills(); }
+function render() { renderDashboard(); renderTable(); renderPills(); renderRangeButtons(); }
 
 if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream && !window.navigator.standalone) {
   document.getElementById('installHint').style.display = 'flex';

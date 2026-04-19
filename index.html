@@ -277,7 +277,7 @@ function toast(msg, type='ok') {
 }
 
 function getToday() { return new Date().toISOString().slice(0,10); }
-function fmt(v) { return v !== null && v !== undefined ? v : '–'; }
+function fmt(v, key) { if (v === null || v === undefined) return '–'; if (key === 'po4') return parseFloat(v).toFixed(3); return v; }
 
 function resetForm() {
   editId = null;
@@ -339,7 +339,7 @@ function renderDashboard() {
     if (!vals.length) return;
     const avg = vals.reduce((a,b) => a+b, 0) / vals.length;
     const lv = last[p.key];
-    html += `<div class="stat"><div class="stat-label">${p.label}</div><div class="stat-value">${lv !== null && lv !== undefined ? lv : '–'}<span class="stat-unit">${p.unit}</span></div><div class="stat-avg">Ø ${avg.toFixed(2)}</div></div>`;
+    html += `<div class="stat"><div class="stat-label">${p.label}</div><div class="stat-value">${lv !== null && lv !== undefined ? (p.key==='po4' ? parseFloat(lv).toFixed(3) : lv) : '–'}<span class="stat-unit">${p.unit}</span></div><div class="stat-avg">Ø ${avg.toFixed(2)}</div></div>`;
   });
   grid.innerHTML = html;
 }
@@ -350,7 +350,7 @@ function renderTable() {
   tbody.innerHTML = [...data].reverse().map(e => `
     <tr>
       <td class="date-cell">${e.date}</td>
-      ${NUM_KEYS.map(k => `<td class="${e[k]===null||e[k]===undefined?'null-cell':''}">${fmt(e[k])}</td>`).join('')}
+      ${NUM_KEYS.map(k => `<td class="${e[k]===null||e[k]===undefined?'null-cell':''}">${fmt(e[k], k)}</td>`).join('')}
       <td class="comment-cell">${e.comment || '–'}</td>
       <td>
         <button class="action-btn" onclick="editEntry(${e.id})">✎</button>
